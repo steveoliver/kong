@@ -214,7 +214,7 @@ if is_http then
 
   local fmt = string.format
   local ngx_null = ngx.null
-  local re_split = require("ngx.re").split
+  local splitn = require("kong.tools.string").splitn
 
 
   local PREFIX_LEN = 13 -- #"http.headers."
@@ -227,18 +227,11 @@ if is_http then
   local HTTP_SEGMENTS_OFFSET = 1
 
 
-  local get_http_segments
-  do
-    local HTTP_SEGMENTS_REG_CTX = { pos = 2, }  -- skip first '/'
-
-    get_http_segments = function(params)
-      if not params.segments then
-        HTTP_SEGMENTS_REG_CTX.pos = 2 -- reset ctx, skip first '/'
-        params.segments = re_split(params.uri, "/", "jo", HTTP_SEGMENTS_REG_CTX)
-      end
-
-      return params.segments
+  local function get_http_segments(params)
+    if not params.segments then
+      params.segments = splitn(params.uri, "/", nil, 2)
     end
+    return params.segments
   end
 
 

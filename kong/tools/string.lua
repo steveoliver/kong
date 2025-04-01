@@ -1,5 +1,5 @@
 local pl_stringx = require "pl.stringx"
-
+local new_tab = require "table.new"
 
 local type     = type
 local ipairs   = ipairs
@@ -10,6 +10,7 @@ local fmt      = string.format
 local find     = string.find
 local gsub     = string.gsub
 local byte     = string.byte
+local huge     = math.huge
 
 
 local SPACE_BYTE = byte(" ")
@@ -23,15 +24,102 @@ local _M = {}
 _M.join = pl_stringx.join
 
 
---- splits a string.
+--- splits a string (kept for backward compatibility, use splitn instead).
 -- just a placeholder to the penlight `pl.stringx.split` function
 -- @function split
 _M.split = pl_stringx.split
 
 
+--- splits a string once.
+-- @function split_once
+function _M.split_once(value, pattern, init, plain)
+  if value == nil then
+    return
+  end
+
+  if value == "" then
+    return ""
+  end
+
+  plain = plain == nil and true or nil
+
+  local s, e = find(value, pattern, init, plain)
+  if not s then
+    return value
+  end
+
+  if s == 1 and e == 1 then
+    return "", (sub(value, e + 1))
+  end
+
+  return (sub(value, init or 1, s - 1)), (sub(value, e + 1))
+end
+
+
+--- splits a string (much faster than the split above).
+-- @function splitn
+local function splitn(value, pattern, n, init, plain)
+  local limit = n or huge
+
+  if value == nil or limit < 1 then
+    return {}, 0
+  elseif limit == 1 or value == "" then
+    return { value }, 1
+  end
+
+  plain = plain == nil and true or nil
+
+  local s, e = find(value, pattern, init, plain)
+  if not s then
+    return { value }, 1
+  end
+
+  local t = new_tab(n or 10, 0)
+  t[1] = sub(value, init or 1, s - 1)
+
+  local i = 1
+
+::again::
+  local p = e + 1
+  i = i + 1
+  if i < limit then
+    s, e = find(value, pattern, p, plain)
+    if s then
+      t[i] = sub(value, p, s - 1)
+      goto again
+    end
+  end
+  t[i] = sub(value, p)
+  return t, i
+end
+_M.splitn = splitn
+
+
+local function noop_iter() end
+local function once_iter(invariant, control)
+  return invariant ~= control and invariant or nil
+end
+local function split_iter(t)
+  local i = t[0] or 1
+  t[0] = i + 1
+  return t[i]
+end
+--- string splitting iterator.
+-- @function isplit
+function _M.isplit(value, pattern, n, init, plain)
+  local t, count = splitn(value, pattern, n, init, plain)
+  if count == 0 then
+    return noop_iter
+  elseif count == 1 then
+    return once_iter, t[1]
+  end
+  return split_iter, t
+end
+
+
 --- strips whitespace from a string.
 -- @function strip
-_M.strip = function(value)
+function _M.strip (value)
   if value == nil then
     return ""
   end
